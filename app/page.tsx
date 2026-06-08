@@ -4,7 +4,7 @@ import { Layers, ArrowRight, Shield, Zap, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default async function LandingPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
