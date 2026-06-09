@@ -14,6 +14,10 @@ function normalizeNotes(raw: Record<string, unknown>[]): Note[] {
     body: (n.body as string) ?? "",
     color: (n.color as string | null) ?? null,
     is_pinned: Boolean(n.is_pinned),
+    is_favorite: Boolean(n.is_favorite),
+    note_style: (n.note_style as string) ?? "blank",
+    note_type: (n.note_type as "note" | "todo") ?? "note",
+    note_order: (n.note_order as number) ?? 0,
     created_at: n.created_at as string,
     updated_at: n.updated_at as string,
   }));

@@ -105,3 +105,32 @@
 .note-editor strong {
   font-weight: 600;
 }
+
+/* ── Print styles ─────────────────────────────── */
+@media print {
+  .no-print { display: none !important; }
+  body { background: white !important; color: black !important; }
+  .note-editor { min-height: unset !important; }
+  [contenteditable] { border: none !important; outline: none !important; }
+}
+
+/* ── PDF attachment ───────────────────────────── */
+.pdf-attachment { margin: 8px 0; }
+.audio-attachment { margin: 8px 0; }
+
+/* ── Note editor tables ───────────────────────── */
+.note-editor table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+}
+.note-editor table td,
+.note-editor table th {
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  padding: 6px 10px;
+  text-align: left;
+}
+.note-editor table th {
+  background: rgba(99, 102, 241, 0.1);
+  font-weight: 600;
+}

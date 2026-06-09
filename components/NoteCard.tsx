@@ -19,9 +19,10 @@ interface NoteCardProps {
   note: Note;
   onPin?: (id: string, pinned: boolean) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
+  listMode?: boolean;
 }
 
-export function NoteCard({ note, onPin, onDelete }: NoteCardProps) {
+export function NoteCard({ note, onPin, onDelete, listMode }: NoteCardProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -50,7 +51,8 @@ export function NoteCard({ note, onPin, onDelete }: NoteCardProps) {
         className={cn(
           "group relative rounded-lg border p-4 sm:p-5 transition-all duration-200",
           "hover:shadow-md hover:-translate-y-0.5",
-          note.is_pinned && "ring-1 ring-primary/30"
+          note.is_pinned && "ring-1 ring-primary/30",
+          listMode && "flex flex-row items-start p-3 hover:-translate-y-0"
         )}
         style={{
           background: colorStyle.background,
@@ -59,6 +61,10 @@ export function NoteCard({ note, onPin, onDelete }: NoteCardProps) {
       >
         {note.is_pinned && (
           <Pin className="absolute top-3 left-3 h-3.5 w-3.5 text-primary fill-primary" />
+        )}
+
+        {note.is_favorite && (
+          <span className="absolute top-3 right-10 text-red-500 text-xs">❤️</span>
         )}
 
         <div
