@@ -41,10 +41,11 @@ export async function uploadNoteAudio(
   if (file instanceof File && !ALLOWED_AUDIO_EXTS.includes(ext)) return null;
   const name = fileName || (file instanceof File ? file.name : `recording-${Date.now()}.${ext}`);
   const path = `${userId}/audio-${crypto.randomUUID()}.${ext}`;
+  const contentType = file instanceof File ? file.type : "audio/webm";
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
     cacheControl: "3600",
     upsert: false,
-    contentType: file instanceof Blob ? "audio/webm" : file.type,
+    contentType,
   });
   if (error) {
     console.error("Audio upload failed:", error.message);
