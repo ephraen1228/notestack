@@ -405,6 +405,7 @@ export default function NoteDetailPage() {
               color={color}
               noteStyle={noteStyle}
               readMode={readMode}
+              editorRef={editorRef}
               onTitleChange={setTitle}
               onBodyChange={setBody}
               onColorChange={setColor}

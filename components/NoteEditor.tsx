@@ -19,6 +19,7 @@ interface NoteEditorProps {
   color: string | null;
   noteStyle?: string;
   readMode?: boolean;
+  editorRef?: React.RefObject<HTMLDivElement | null>;
   onTitleChange: (value: string) => void;
   onBodyChange: (value: string) => void;
   onColorChange: (value: string | null) => void;
@@ -34,13 +35,42 @@ interface StickyNoteWidget {
   y: number;
 }
 
+// ── Sticky note <-> body HTML helpers ──────────────────────────────────────
+const STICKY_DATA_REGEX = /<script type="application\/json" id="sticky-notes-data">([\s\S]*?)<\/script>/;
+
+function extractStickyNotes(html: string): StickyNoteWidget[] {
+  const match = html.match(STICKY_DATA_REGEX);
+  if (!match) return [];
+  try {
+    const parsed = JSON.parse(match[1]);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {
+    // ignore malformed data
+  }
+  return [];
+}
+
+function stripStickyData(html: string): string {
+  return html.replace(STICKY_DATA_REGEX, "");
+}
+
+function injectStickyNotes(html: string, stickies: StickyNoteWidget[]): string {
+  const stripped = stripStickyData(html);
+  if (stickies.length === 0) return stripped;
+  return `${stripped}<script type="application/json" id="sticky-notes-data">${JSON.stringify(
+    stickies
+  )}</script>`;
+}
+
 export function NoteEditor({
-  title, body, color, noteStyle = "blank", readMode = false,
+  title, body, color, noteStyle = "blank", readMode = false, editorRef,
   onTitleChange, onBodyChange, onColorChange,
   titlePlaceholder = "Note title...",
   bodyPlaceholder = "Start writing...",
 }: NoteEditorProps) {
-  const editorRef = useRef<HTMLDivElement>(null);
+  const internalRef = useRef<HTMLDivElement>(null);
+  const editorElRef = (editorRef ?? internalRef) as React.RefObject<HTMLDivElement | null>;
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
@@ -51,25 +81,50 @@ export function NoteEditor({
   const [recording, setRecording] = useState(false);
   const [stickyNotes, setStickyNotes] = useState<StickyNoteWidget[]>([]);
   const [draggingSticky, setDraggingSticky] = useState<string | null>(null);
+  const stickiesInitialized = useRef(false);
+  const isFirstStickyRender = useRef(true);
   const { toast } = useToast();
 
   const light = isLightColor(color);
   const colorStyle = getNoteColorStyle(color);
   const styleCSS = getNoteStyleCSS(noteStyle, light);
 
+  // Sync incoming body -> contentEditable element
   useEffect(() => {
-    const el = editorRef.current;
+    const el = editorElRef.current;
     if (!el || document.activeElement === el) return;
     if (el.innerHTML !== body) el.innerHTML = body || "";
+  }, [body, editorElRef, readMode]);
+
+  // Load sticky notes embedded in the saved body (runs once, on first load)
+  useEffect(() => {
+    if (stickiesInitialized.current) return;
+    if (!body) return;
+    const parsed = extractStickyNotes(body);
+    if (parsed.length > 0) setStickyNotes(parsed);
+    stickiesInitialized.current = true;
   }, [body]);
 
+  // Whenever sticky notes change (add/edit/move/delete/recolor), embed them
+  // back into the body so they get saved with the note.
+  useEffect(() => {
+    if (isFirstStickyRender.current) {
+      isFirstStickyRender.current = false;
+      return;
+    }
+    const currentHtml = editorElRef.current?.innerHTML ?? body;
+    const newBody = injectStickyNotes(currentHtml, stickyNotes);
+    if (newBody !== body) onBodyChange(newBody);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stickyNotes]);
+
   const syncBody = useCallback(() => {
-    onBodyChange(editorRef.current?.innerHTML ?? "");
-  }, [onBodyChange]);
+    onBodyChange(editorElRef.current?.innerHTML ?? "");
+  }, [editorElRef, onBodyChange]);
 
   const execFormat = (command: string, value?: string) => {
     if (readMode) return;
-    editorRef.current?.focus();
+    editorElRef.current?.focus();
     document.execCommand(command, false, value);
     syncBody();
   };
@@ -97,7 +152,7 @@ export function NoteEditor({
       toast({ variant: "destructive", description: "Failed to upload image." });
       return;
     }
-    editorRef.current?.focus();
+    editorElRef.current?.focus();
     document.execCommand("insertHTML", false, `<img src="${url}" alt="Attached image" class="note-image" />`);
     syncBody();
   };
@@ -125,7 +180,7 @@ export function NoteEditor({
       toast({ variant: "destructive", description: "Failed to upload PDF." });
       return;
     }
-    editorRef.current?.focus();
+    editorElRef.current?.focus();
     document.execCommand(
       "insertHTML", false,
       `<div class="pdf-attachment"><a href="${result.url}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);border-radius:8px;text-decoration:none;color:inherit;font-size:14px">📄 ${result.name}</a></div>`
@@ -148,7 +203,7 @@ export function NoteEditor({
       toast({ variant: "destructive", description: "Failed to upload audio." });
       return;
     }
-    editorRef.current?.focus();
+    editorElRef.current?.focus();
     document.execCommand(
       "insertHTML", false,
       `<div class="audio-attachment" style="margin:8px 0"><audio controls style="width:100%;max-width:400px"><source src="${result.url}" /></audio><p style="font-size:11px;opacity:0.6;margin:2px 0">🎵 ${result.name}</p></div>`
@@ -174,7 +229,7 @@ export function NoteEditor({
         const result = await uploadNoteAudio(supabase, user.id, blob);
         setUploading(false);
         if (result) {
-          editorRef.current?.focus();
+          editorElRef.current?.focus();
           document.execCommand(
             "insertHTML", false,
             `<div class="audio-attachment" style="margin:8px 0"><audio controls style="width:100%;max-width:400px"><source src="${result.url}" type="audio/webm" /></audio><p style="font-size:11px;opacity:0.6;margin:2px 0">🎙️ ${result.name}</p></div>`
@@ -197,7 +252,7 @@ export function NoteEditor({
   // ── Insert table ──────────────────────────────────────────────────────────
   const insertTable = () => {
     if (readMode) return;
-    editorRef.current?.focus();
+    editorElRef.current?.focus();
     const tableHTML = `<table border="1" cellpadding="8" style="width:100%;border-collapse:collapse;margin:8px 0"><thead><tr><th style="background:rgba(99,102,241,0.1)">Header 1</th><th style="background:rgba(99,102,241,0.1)">Header 2</th><th style="background:rgba(99,102,241,0.1)">Header 3</th></tr></thead><tbody><tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr><tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr><tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr></tbody></table><p></p>`;
     document.execCommand("insertHTML", false, tableHTML);
     syncBody();
@@ -383,11 +438,11 @@ export function NoteEditor({
         {readMode ? (
           <div
             className={cn("note-editor text-base leading-relaxed", light && "text-gray-700")}
-            dangerouslySetInnerHTML={{ __html: body }}
+            dangerouslySetInnerHTML={{ __html: stripStickyData(body) }}
           />
         ) : (
           <div
-            ref={editorRef}
+            ref={editorElRef as React.RefObject<HTMLDivElement>}
             contentEditable
             suppressContentEditableWarning
             onInput={syncBody}

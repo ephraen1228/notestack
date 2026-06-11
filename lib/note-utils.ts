@@ -55,10 +55,15 @@ export function isLightColor(color: string | null | undefined): boolean {
 export function stripHtml(html: string): string {
   if (!html) return "";
   if (typeof document === "undefined") {
-    return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    return html
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
   }
   const div = document.createElement("div");
   div.innerHTML = html;
+  div.querySelectorAll("script, style").forEach((el) => el.remove());
   return (div.textContent || div.innerText || "").trim();
 }
 
