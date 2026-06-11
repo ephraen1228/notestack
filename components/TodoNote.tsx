@@ -58,7 +58,11 @@ export function TodoNote({ noteId, isLight }: TodoNoteProps) {
       setItems((prev) => [...prev, data as TodoItem]);
       if (!parentId) setNewText("");
       if (parentId)
-        setExpandedIds((prev) => new Set([...prev, parentId]));
+        setExpandedIds((prev) => {
+          const next = new Set(prev);
+          next.add(parentId);
+          return next;
+        });
     }
   };
 
